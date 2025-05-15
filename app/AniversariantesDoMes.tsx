@@ -392,7 +392,7 @@ const AniversariantesDoMes = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col items-center mb-8">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex flex-col sm:flex-row items-center gap-2 mb-2">
           <Cake size={28} className="text-pink-500" />
           <h1 className="text-3xl font-bold text-center">Aniversariantes do Mês</h1>
         </div>
@@ -422,14 +422,14 @@ const AniversariantesDoMes = () => {
       </div>
       
       {/* Cabeçalho com contador e botão de adicionar */}
-      <div className="flex justify-between items-center mb-6">
-        <Badge variant="outline" className="text-sm py-1 px-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-between items-center mb-6">
+        <Badge variant="secondary" className="text-sm py-2 px-3">
           {aniversariantesFiltrados.length} aniversariantes em {MESES[mesSelecionado]}
         </Badge>
         
         <Dialog open={modalAberto} onOpenChange={setModalAberto}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="flex items-center gap-2">
+            <Button variant="default" className="flex items-center gap-2">
               <UserPlus size={16} />
               <span>Adicionar Aniversariante</span>
             </Button>
