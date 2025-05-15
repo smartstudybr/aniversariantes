@@ -85,16 +85,29 @@ const AniversariantesDoMes = () => {
   const carregarAniversariantes = async () => {
     try {
       setCarregando(true);
+      console.log('Carregando aniversariantes do Supabase...');
+      
       const { data, error } = await supabase
         .from('aniversariantes')
         .select('*');
       
       if (error) {
+        console.error('Erro detalhado ao carregar aniversariantes:', error);
         throw error;
       }
       
+      console.log('Aniversariantes carregados com sucesso:', data?.length || 0);
+      
       if (data) {
-        setAniversariantes(data);
+        // Certifique-se de que as URLs das fotos estão com protocolo https://
+        const aniversariantesProcessados = data.map(anv => {
+          if (anv.foto && !anv.foto.startsWith('http')) {
+            anv.foto = `https://${anv.foto}`;
+          }
+          return anv;
+        });
+        
+        setAniversariantes(aniversariantesProcessados);
       }
     } catch (error) {
       console.error('Erro ao carregar aniversariantes:', error);
@@ -167,22 +180,82 @@ const AniversariantesDoMes = () => {
       
       let fotoUrl: string | undefined;
 
+      // Verifica se o bucket existe, se não, cria
+      const { data: buckets } = await supabase
+        .storage
+        .listBuckets();
+      
+      const bucketExists = buckets?.some(bucket => bucket.name === 'aniversariantes');
+      
+      if (!bucketExists) {
+        // Cria o bucket se não existir
+        const { error: bucketError } = await supabase
+          .storage
+          .createBucket('aniversariantes', {
+            public: true,
+            fileSizeLimit: 2097152, // 2MB em bytes
+            allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+          });
+          
+        if (bucketError) {
+          console.error('Erro ao criar bucket:', bucketError);
+          throw bucketError;
+        }
+      }
+
       if (selectedFile) {
         try {
-          // gera um nome único
+          console.log('Iniciando upload do arquivo com S3...');
+          
+          // Gera um nome único para o arquivo
           const fileExt = selectedFile.name.split('.').pop();
           const fileName = `${uuidv4()}.${fileExt}`;
-          const filePath = `aniversariantes/${fileName}`;
+          const filePath = fileName; // Caminho direto sem subdiretorios
           
-          // Upload da imagem
-          const { error: uploadError } = await supabase
+          console.log(`Nome do arquivo gerado: ${fileName}`);
+          
+          // Método 1: Upload via biblioteca do Supabase
+          console.log('Tentando upload via cliente Supabase...');
+          const { error: uploadError, data: uploadData } = await supabase
             .storage
             .from('aniversariantes')
-            .upload(filePath, selectedFile);
+            .upload(filePath, selectedFile, {
+              cacheControl: '3600',
+              upsert: true, // Se já existir um arquivo com mesmo nome, substitui
+              contentType: selectedFile.type // Especifica o tipo de conteúdo explicitamente
+            });
             
+          // Se falhar com o método 1, tenta o método 2 (S3 direto)
           if (uploadError) {
-            console.error('Erro no upload:', uploadError);
-            throw uploadError;
+            console.error('Erro no upload via Supabase:', uploadError);
+            console.log('Tentando upload direto via S3...');
+            
+            // Preparar formData para upload direto
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            
+            // URL de upload direta para o S3
+            const storageUrl = `${supabaseUrl}/storage/v1/s3/aniversariantes/${fileName}`;
+            
+            // Fazer upload diretamente via fetch
+            const response = await fetch(storageUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${supabaseKey}`,
+                'x-s3-access-key': s3AccessKey,
+                'x-upsert': 'true'
+              },
+              body: formData
+            });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`Upload falhou: ${response.status} ${response.statusText} - ${errorText}`);
+            }
+            
+            console.log('Upload direto S3 bem-sucedido!');
+          } else {
+            console.log('Upload via Supabase bem-sucedido:', uploadData);
           }
 
           // Obter URL pública
@@ -192,19 +265,35 @@ const AniversariantesDoMes = () => {
             .getPublicUrl(filePath);
 
           fotoUrl = publicUrlData.publicUrl;
+          console.log('URL da foto gerada:', fotoUrl);
+          
+          // Se a URL não incluir o protocolo, adicione https://
+          if (fotoUrl && !fotoUrl.startsWith('http')) {
+            fotoUrl = `https://${fotoUrl}`;
+            console.log('URL ajustada com protocolo:', fotoUrl);
+          }
         } catch (uploadErr) {
-          console.error('Erro no processo de upload:', uploadErr);
-          toastError('Erro no upload', 'Não foi possível fazer upload da imagem');
+          console.error('Erro detalhado no processo de upload:', uploadErr);
+          toastError('Erro no upload', 'Não foi possível fazer upload da imagem. Verifique o console para mais detalhes.');
           setAdicionando(false);
           return;
         }
       }
 
+      // Criar um ID para o novo aniversariante
+      const newId = uuidv4();
+
       // Preparar o objeto para inserção
       const payload = {
-        ...novoAniversariante,
-        foto: fotoUrl
+        id: newId,
+        nome: novoAniversariante.nome,
+        departamento: novoAniversariante.departamento || null,
+        data: novoAniversariante.data,
+        email: novoAniversariante.email || null,
+        foto: fotoUrl || null
       };
+
+      console.log('Payload a ser inserido:', payload);
 
       // Inserir no banco de dados
       const { data, error } = await supabase
@@ -218,7 +307,7 @@ const AniversariantesDoMes = () => {
       }
       
       if (data && data.length > 0) {
-        // atualiza estado
+        // Atualiza estado
         setAniversariantes(prev => [...prev, data[0]]);
         
         // Limpar o formulário e fechar o modal
@@ -249,6 +338,32 @@ const AniversariantesDoMes = () => {
   const removerAniversariante = async (id: string) => {
     if (confirm('Tem certeza que deseja remover este aniversariante?')) {
       try {
+        // Primeiro busca o aniversariante para ver se tem foto para excluir
+        const { data: aniversarianteData } = await supabase
+          .from('aniversariantes')
+          .select('foto')
+          .eq('id', id)
+          .single();
+          
+        // Se tiver foto, tenta remover do storage
+        if (aniversarianteData?.foto) {
+          // Extrai o nome do arquivo da URL
+          const urlParts = aniversarianteData.foto.split('/');
+          const fileName = urlParts[urlParts.length - 1];
+          
+          // Remove o arquivo do storage
+          const { error: storageError } = await supabase
+            .storage
+            .from('aniversariantes')
+            .remove([fileName]);
+            
+          if (storageError) {
+            console.warn('Erro ao remover arquivo:', storageError);
+            // Continua mesmo se não conseguir remover o arquivo
+          }
+        }
+        
+        // Remove o aniversariante do banco
         const { error } = await supabase
           .from('aniversariantes')
           .delete()
@@ -383,7 +498,7 @@ const AniversariantesDoMes = () => {
                     <Plus size={24} className="text-gray-400" />
                   )}
                 </div>
-                <div>
+                <div className="w-full">
                   <Input
                     id="foto"
                     type="file"
@@ -391,8 +506,17 @@ const AniversariantesDoMes = () => {
                     ref={inputRef}
                     className="w-full cursor-pointer"
                     onChange={handleImageUpload}
+                    style={{ display: 'none' }} // Esconder o input real
                   />
-                  <p className="text-xs text-gray-500 mt-1">Tamanho máximo: 2MB</p>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => inputRef.current?.click()}
+                  >
+                    Selecionar imagem
+                  </Button>
+                  <p className="text-xs text-gray-500 mt-1 text-center">Tamanho máximo: 2MB</p>
                 </div>
               </div>
               
