@@ -6,10 +6,10 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY!
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Nome do bucket que você criou no Dashboard > Storage
-export const BUCKET_NAME = 'aniversariantes'
+export const BUCKET_NAME = 'aniversariantes-bucket'
 
 // URL base para abrir arquivos publicamente
-export const S3_ENDPOINT = `${supabaseUrl}/storage/v1/object/public/${BUCKET_NAME}`
+export const S3_ENDPOINT = `${supabaseUrl}/storage/v1/s3`
 
 /**
  * Verifica se o bucket existe e, se não, tenta criá-lo.

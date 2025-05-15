@@ -226,7 +226,7 @@ const AniversariantesDoMes = () => {
           formData.append('file', selectedFile);
           
           // URL de upload direta para o S3
-          const fullPath = `aniversariantes/${fileName}`;
+          const fullPath = `aniversariantes-bucket/${fileName}`;
           const uploadUrl = `${S3_ENDPOINT}/${fullPath}`;
           
           console.log(`URL de upload: ${uploadUrl}`);
