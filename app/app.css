@@ -88,6 +88,18 @@ body {
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
+   --toast-background: #ffffff;
+  --toast-foreground: #000000;
+  --toast-border: #e2e8f0;
+  --toast-error-background: #fef2f2;
+  --toast-error-foreground: #b91c1c;
+  --toast-error-border: #f87171;
+  --toast-success-background: #f0fdf4;
+  --toast-success-foreground: #047857;
+  --toast-success-border: #4ade80;
+  --toast-info-background: #eff6ff;
+  --toast-info-foreground: #1d4ed8;
+  --toast-info-border: #60a5fa;
 }
 
 .dark {
@@ -122,6 +134,18 @@ body {
   --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.551 0.027 264.364);
+  --toast-background: #1e293b;
+  --toast-foreground: #ffffff;
+  --toast-border: #334155;
+  --toast-error-background: #7f1d1d;
+  --toast-error-foreground: #ffffff;
+  --toast-error-border: #ef4444;
+  --toast-success-background: #064e3b;
+  --toast-success-foreground: #ffffff;
+  --toast-success-border: #10b981;
+  --toast-info-background: #1e3a8a;
+  --toast-info-foreground: #ffffff;
+  --toast-info-border: #3b82f6;
 }
 
 @layer base {
@@ -131,4 +155,44 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+[data-sonner-toaster] {
+  z-index: 999999 !important;
+}
+
+[data-sonner-toast] {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 8px !important;
+  border-width: 1px !important;
+  margin-bottom: 12px !important;
+}
+
+[data-sonner-toast][data-type="error"] {
+  background-color: var(--toast-error-background) !important;
+  color: var(--toast-error-foreground) !important;
+  border-color: var(--toast-error-border) !important;
+}
+
+[data-sonner-toast][data-type="success"] {
+  background-color: var(--toast-success-background) !important;
+  color: var(--toast-success-foreground) !important;
+  border-color: var(--toast-success-border) !important;
+}
+
+[data-sonner-toast][data-type="info"] {
+  background-color: var(--toast-info-background) !important;
+  color: var(--toast-info-foreground) !important;
+  border-color: var(--toast-info-border) !important;
+}
+
+[data-sonner-toast] [data-title] {
+  font-weight: 600 !important;
+  font-size: 0.95rem !important;
+  margin-bottom: 4px !important;
+}
+
+[data-sonner-toast] [data-description] {
+  font-size: 0.85rem !important;
+  opacity: 0.9 !important;
 }

@@ -1,23 +1,35 @@
+// app/components/ui/sonner.tsx - Versão simplificada para garantir funcionamento
 import { useTheme } from "next-themes"
-import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { toast, Toaster as SonnerToaster } from "sonner"
 
-const Toaster = ({ ...props }: ToasterProps) => {
+// Componente Toaster simplificado
+const Toaster = ({ ...props }) => {
   const { theme = "system" } = useTheme()
 
   return (
-    <Sonner
-      theme={theme as ToasterProps["theme"]}
-      className="toaster group"
-      style={
-        {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
-        } as React.CSSProperties
-      }
+    <SonnerToaster
+      theme={theme as any}
+      richColors
+      closeButton
+      position="top-right"
+      duration={4000}
+      visibleToasts={3}
       {...props}
     />
   )
 }
 
-export { Toaster }
+// Funções de toast simplificadas
+const toastSuccess = (title: string, description?: string) => {
+  toast.success(title, { description });
+};
+
+const toastError = (title: string, description?: string) => {
+  toast.error(title, { description });
+};
+
+const toastInfo = (title: string, description?: string) => {
+  toast.info(title, { description });
+};
+
+export { Toaster, toast, toastSuccess, toastError, toastInfo };

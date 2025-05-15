@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Cake, Calendar, Plus, UserPlus, Mail, Trash2, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { Cake, Calendar, Plus, UserPlus, Mail, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { toastSuccess, toastError, toastInfo } from '@/components/ui/sonner';
 import supabase from '@/utils/supabase'
 import { v4 as uuidv4 } from 'uuid';
 
@@ -31,14 +31,6 @@ interface Aniversariante {
   created_at?: string;   // Campo adicional para o Supabase
 }
 
-// Interface para notificações
-interface Notificacao {
-  id: string;
-  tipo: 'sucesso' | 'erro' | 'info';
-  titulo: string;
-  mensagem: string;
-}
-
 const AniversariantesDoMes = () => {
   // Estado para armazenar o mês selecionado
   const [mesSelecionado, setMesSelecionado] = useState(new Date().getMonth());
@@ -51,6 +43,9 @@ const AniversariantesDoMes = () => {
   
   // Estado para indicar carregamento
   const [carregando, setCarregando] = useState(true);
+  
+  // Estado para indicar carregamento de adição
+  const [adicionando, setAdicionando] = useState(false);
   
   // Estado para o modal de adição de novo aniversariante
   type NovoAniversariante = Omit<Aniversariante, 'id'>;
@@ -68,23 +63,6 @@ const AniversariantesDoMes = () => {
   
   // Estado para controlar a abertura do modal
   const [modalAberto, setModalAberto] = useState(false);
-  
-  // Estado para notificações
-  const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
-
-  // Função auxiliar para criar notificações
-  const criarNotificacao = (tipo: 'sucesso' | 'erro' | 'info', titulo: string, mensagem: string) => {
-    const id = Math.random().toString(36).substring(2, 15);
-    const novaNotificacao = { id, tipo, titulo, mensagem };
-    setNotificacoes(prevNotificacoes => [...prevNotificacoes, novaNotificacao]);
-    
-    // Remove a notificação após 5 segundos
-    setTimeout(() => {
-      setNotificacoes(prevNotificacoes => 
-        prevNotificacoes.filter(n => n.id !== id)
-      );
-    }, 5000);
-  };
 
   // Carregar aniversariantes do Supabase quando o componente é montado
   useEffect(() => {
@@ -120,11 +98,8 @@ const AniversariantesDoMes = () => {
       }
     } catch (error) {
       console.error('Erro ao carregar aniversariantes:', error);
-      criarNotificacao(
-        'erro',
-        'Erro ao carregar aniversariantes',
-        'Não foi possível carregar os dados. Tente novamente mais tarde.'
-      );
+      toastError('Erro ao carregar aniversariantes', 
+        'Não foi possível carregar os dados. Tente novamente mais tarde.');
     } finally {
       setCarregando(false);
     }
@@ -142,94 +117,133 @@ const AniversariantesDoMes = () => {
   // Manipulador para upload de imagem
   const inputRef = useRef<HTMLInputElement>(null);
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  if (file.size > 2 * 1024 * 1024) {
-    criarNotificacao('erro', 'Arquivo muito grande', 'A imagem deve ter no máximo 2MB');
-    return;
-  }
+    if (file.size > 2 * 1024 * 1024) {
+      toastError('Arquivo muito grande', 
+        'A imagem deve ter no máximo 2MB');
+      return;
+    }
 
-  // Armazena o objeto File
-  setSelectedFile(file);
+    // Armazena o objeto File
+    setSelectedFile(file);
 
-  // Gera preview local
-  const reader = new FileReader();
-  reader.onloadend = () => {
-    setPreviewImage(reader.result as string);
+    // Gera preview local
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
-  reader.readAsDataURL(file);
-};
-
   
   // Função para adicionar um novo aniversariante
   const adicionarAniversariante = async () => {
     // Validação básica
     if (!novoAniversariante.nome || !novoAniversariante.data) {
-      criarNotificacao(
-        'erro',
-        'Campos obrigatórios',
-        'Nome e data de aniversário são obrigatórios'
-      );
+      toastError('Campos obrigatórios', 
+        'Nome e data de aniversário são obrigatórios');
       return;
     }
     
     // Validar o formato da data (DD/MM)
     const dataRegex = /^\d{2}\/\d{2}$/;
     if (!dataRegex.test(novoAniversariante.data)) {
-      criarNotificacao(
-        'erro',
-        'Formato inválido',
-        'A data deve estar no formato DD/MM'
-      );
+      toastError('Formato inválido', 
+        'A data deve estar no formato DD/MM');
+      return;
+    }
+    
+    // Validar que o dia está entre 1 e 31 e o mês entre 1 e 12
+    const [dia, mes] = novoAniversariante.data.split('/').map(Number);
+    if (dia < 1 || dia > 31 || mes < 1 || mes > 12) {
+      toastError('Data inválida', 
+        'O dia deve estar entre 1 e 31 e o mês entre 1 e 12');
       return;
     }
     
     try {
-    let fotoUrl: string | undefined;
+      setAdicionando(true); // Ativar indicador de carregamento
+      
+      let fotoUrl: string | undefined;
 
-    if (selectedFile) {
-      // gera um nome único
-      const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${uuidv4()}.${fileExt}`;
-      const filePath = `aniversariantes/${fileName}`;
-      const { error: uploadError } = await supabase
-        .storage
-        .from('aniversariantes')          // conecta ao bucket “aniversariantes”
-        .upload(filePath, selectedFile);
-      if (uploadError) throw uploadError;
+      if (selectedFile) {
+        try {
+          // gera um nome único
+          const fileExt = selectedFile.name.split('.').pop();
+          const fileName = `${uuidv4()}.${fileExt}`;
+          const filePath = `aniversariantes/${fileName}`;
+          
+          // Upload da imagem
+          const { error: uploadError } = await supabase
+            .storage
+            .from('aniversariantes')
+            .upload(filePath, selectedFile);
+            
+          if (uploadError) {
+            console.error('Erro no upload:', uploadError);
+            throw uploadError;
+          }
 
-      // pega a URL pública
-      const { data: publicUrlData } = supabase
-        .storage
+          // Obter URL pública
+          const { data: publicUrlData } = supabase
+            .storage
+            .from('aniversariantes')
+            .getPublicUrl(filePath);
+
+          fotoUrl = publicUrlData.publicUrl;
+        } catch (uploadErr) {
+          console.error('Erro no processo de upload:', uploadErr);
+          toastError('Erro no upload', 'Não foi possível fazer upload da imagem');
+          setAdicionando(false);
+          return;
+        }
+      }
+
+      // Preparar o objeto para inserção
+      const payload = {
+        ...novoAniversariante,
+        foto: fotoUrl
+      };
+
+      // Inserir no banco de dados
+      const { data, error } = await supabase
         .from('aniversariantes')
-        .getPublicUrl(filePath);
+        .insert([payload])
+        .select();
 
-      fotoUrl = publicUrlData.publicUrl;
+      if (error) {
+        console.error('Erro ao inserir no banco:', error);
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        // atualiza estado
+        setAniversariantes(prev => [...prev, data[0]]);
+        
+        // Limpar o formulário e fechar o modal
+        setNovoAniversariante({
+          nome: '',
+          departamento: '',
+          data: '',
+          email: '',
+          foto: undefined
+        });
+        setPreviewImage(null);
+        setSelectedFile(null);
+        setModalAberto(false);
+        
+        toastSuccess('Aniversariante adicionado', 'Tudo certo!');
+      } else {
+        throw new Error('Dados não foram retornados após inserção');
+      }
+    } catch (err) {
+      console.error('Erro ao adicionar aniversariante:', err);
+      toastError('Erro ao adicionar', 'Não foi possível adicionar o aniversariante');
+    } finally {
+      setAdicionando(false); // Desativar indicador de carregamento independente do resultado
     }
-
-    // agora insere no banco, passando a URL em vez do DataURL
-    const payload = {
-      ...novoAniversariante,
-      foto: fotoUrl
-    };
-
-    const { data, error } = await supabase
-      .from('aniversariantes')
-      .insert([payload])
-      .select();
-
-    if (error) throw error;
-
-    // atualiza estado...
-    setAniversariantes(prev => [...prev, data![0]]);
-    criarNotificacao('sucesso', 'Aniversariante adicionado', 'Tudo certo!');
-    // reset form...
-  } catch (err) {
-    console.error(err);
-    criarNotificacao('erro','Ops','Não foi possível adicionar.');
-  }
-};
+  };
   
   // Função para remover um aniversariante
   const removerAniversariante = async (id: string) => {
@@ -246,18 +260,11 @@ const AniversariantesDoMes = () => {
         
         // Atualizar o estado local
         setAniversariantes(prev => prev.filter(anv => anv.id !== id));
-        criarNotificacao(
-          'sucesso',
-          'Aniversariante removido',
-          'Aniversariante removido com sucesso!'
-        );
+        toastSuccess('Aniversariante removido', 
+          'Aniversariante removido com sucesso!');
       } catch (error) {
         console.error('Erro ao remover aniversariante:', error);
-        criarNotificacao(
-          'erro',
-          'Erro',
-          'Não foi possível remover o aniversariante'
-        );
+        toastError('Erro', 'Não foi possível remover o aniversariante');
       }
     }
   };
@@ -273,11 +280,8 @@ const AniversariantesDoMes = () => {
     // Abrir o cliente de email padrão
     window.open(`mailto:${anv.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`);
     
-    criarNotificacao(
-      'info',
-      'Email aberto',
-      `Email para ${anv.nome} aberto no seu cliente de email`
-    );
+    toastInfo('Email aberto', 
+      `Email para ${anv.nome} aberto no seu cliente de email`);
   };
   
   // Obter o número do dia de um aniversariante
@@ -311,46 +315,14 @@ const AniversariantesDoMes = () => {
   };
 
   function handleDepartamentoChange(v: string) {
-  setNovoAniversariante(prev => ({
-    ...prev,
-    departamento: v
-  }));
-}
+    setNovoAniversariante(prev => ({
+      ...prev,
+      departamento: v
+    }));
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Área de notificações */}
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80">
-        {notificacoes.map((notificacao) => (
-          <Alert 
-            key={notificacao.id} 
-            variant={notificacao.tipo === 'erro' ? "destructive" : "default"} 
-            className={`shadow-md border transition-all duration-300 ${
-              notificacao.tipo === 'sucesso' ? 'border-green-500 bg-green-50 text-green-700' : 
-              notificacao.tipo === 'info' ? 'border-blue-500 bg-blue-50 text-blue-700' : ''
-            }`}
-          >
-            <div className="flex justify-between items-start">
-              <div className="flex gap-2 items-center">
-                {notificacao.tipo === 'sucesso' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                {notificacao.tipo === 'erro' && <AlertCircle className="h-4 w-4" />}
-                {notificacao.tipo === 'info' && <AlertCircle className="h-4 w-4 text-blue-500" />}
-                <AlertTitle>{notificacao.titulo}</AlertTitle>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-4 w-4 p-0 hover:bg-transparent"
-                onClick={() => setNotificacoes(prev => prev.filter(n => n.id !== notificacao.id))}
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-            <AlertDescription>{notificacao.mensagem}</AlertDescription>
-          </Alert>
-        ))}
-      </div>
-
       <div className="flex flex-col items-center mb-8">
         <div className="flex items-center gap-2 mb-2">
           <Cake size={28} className="text-pink-500" />
@@ -403,11 +375,12 @@ const AniversariantesDoMes = () => {
               <div className="flex flex-col items-center gap-4 mb-4">
                 <div 
                   className={`${previewImage ? '' : 'bg-gray-200'} cursor-pointer w-24 h-24 rounded-full flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300`}
+                  onClick={() => inputRef.current?.click()}
                 >
                   {previewImage ? (
                     <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
                   ) : (
-                    <Plus size={24} className="text-gray-400 cursor-pointer" onClick={() => inputRef.current?.click()}/>
+                    <Plus size={24} className="text-gray-400" />
                   )}
                 </div>
                 <div>
@@ -415,6 +388,7 @@ const AniversariantesDoMes = () => {
                     id="foto"
                     type="file"
                     accept="image/*"
+                    ref={inputRef}
                     className="w-full cursor-pointer"
                     onChange={handleImageUpload}
                   />
@@ -483,8 +457,25 @@ const AniversariantesDoMes = () => {
             </div>
             
             <DialogFooter>
-              <Button variant="outline" onClick={() => setModalAberto(false)}>Cancelar</Button>
-              <Button onClick={adicionarAniversariante}>Adicionar</Button>
+              <Button variant="outline" onClick={() => setModalAberto(false)} disabled={adicionando}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={adicionarAniversariante} 
+                disabled={adicionando}
+                className="relative"
+              >
+                {adicionando ? (
+                  <>
+                    <span className="opacity-0">Adicionar</span>
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <div className="animate-spin h-5 w-5 border-t-2 border-b-2 border-white rounded-full"></div>
+                    </span>
+                  </>
+                ) : (
+                  'Adicionar'
+                )}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
