@@ -9,8 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { toastSuccess, toastError, toastInfo } from '@/components/ui/sonner';
-import supabase from '@/utils/supabase'
+// Importações adicionais
+import supabase from '@/utils/supabase';
 import { v4 as uuidv4 } from 'uuid';
+
+// Configuração S3 direta
+const S3_ACCESS_KEY = 'befc8681d5d0cf930dba83970958c448';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 
 // Lista de meses em português
@@ -210,68 +216,45 @@ const AniversariantesDoMes = () => {
           // Gera um nome único para o arquivo
           const fileExt = selectedFile.name.split('.').pop();
           const fileName = `${uuidv4()}.${fileExt}`;
-          const filePath = fileName; // Caminho direto sem subdiretorios
           
-          console.log(`Nome do arquivo gerado: ${fileName}`);
+          // Tentar upload direto via endpoint S3
+          const S3_ENDPOINT = 'https://krzroxvtvpqkpvngmtfx.supabase.co/storage/v1/s3';
+          console.log(`Tentando upload direto via endpoint S3: ${S3_ENDPOINT}`);
           
-          // Método 1: Upload via biblioteca do Supabase
-          console.log('Tentando upload via cliente Supabase...');
-          const { error: uploadError, data: uploadData } = await supabase
-            .storage
-            .from('aniversariantes')
-            .upload(filePath, selectedFile, {
-              cacheControl: '3600',
-              upsert: true, // Se já existir um arquivo com mesmo nome, substitui
-              contentType: selectedFile.type // Especifica o tipo de conteúdo explicitamente
-            });
-            
-          // Se falhar com o método 1, tenta o método 2 (S3 direto)
-          if (uploadError) {
-            console.error('Erro no upload via Supabase:', uploadError);
-            console.log('Tentando upload direto via S3...');
-            
-            // Preparar formData para upload direto
-            const formData = new FormData();
-            formData.append('file', selectedFile);
-            
-            // URL de upload direta para o S3
-            const storageUrl = `${supabaseUrl}/storage/v1/s3/aniversariantes/${fileName}`;
-            
-            // Fazer upload diretamente via fetch
-            const response = await fetch(storageUrl, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${supabaseKey}`,
-                'x-s3-access-key': s3AccessKey,
-                'x-upsert': 'true'
-              },
-              body: formData
-            });
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              throw new Error(`Upload falhou: ${response.status} ${response.statusText} - ${errorText}`);
-            }
-            
-            console.log('Upload direto S3 bem-sucedido!');
-          } else {
-            console.log('Upload via Supabase bem-sucedido:', uploadData);
+          // Preparar formData para upload direto
+          const formData = new FormData();
+          formData.append('file', selectedFile);
+          
+          // URL de upload direta para o S3
+          const fullPath = `aniversariantes/${fileName}`;
+          const uploadUrl = `${S3_ENDPOINT}/${fullPath}`;
+          
+          console.log(`URL de upload: ${uploadUrl}`);
+          
+          // Fazer upload diretamente via fetch
+          const response = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'x-s3-access-key': S3_ACCESS_KEY,
+              'x-upsert': 'true'
+            },
+            body: formData
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Erro no upload S3: ${response.status} ${response.statusText}`, errorText);
+            throw new Error(`Upload falhou: ${response.status} ${response.statusText} - ${errorText}`);
           }
-
-          // Obter URL pública
-          const { data: publicUrlData } = supabase
-            .storage
-            .from('aniversariantes')
-            .getPublicUrl(filePath);
-
-          fotoUrl = publicUrlData.publicUrl;
+          
+          console.log('Upload S3 bem-sucedido!');
+          
+          // Construir a URL pública
+          const publicUrl = `${S3_ENDPOINT}/${fullPath}`;
+          fotoUrl = publicUrl;
+          
           console.log('URL da foto gerada:', fotoUrl);
-          
-          // Se a URL não incluir o protocolo, adicione https://
-          if (fotoUrl && !fotoUrl.startsWith('http')) {
-            fotoUrl = `https://${fotoUrl}`;
-            console.log('URL ajustada com protocolo:', fotoUrl);
-          }
         } catch (uploadErr) {
           console.error('Erro detalhado no processo de upload:', uploadErr);
           toastError('Erro no upload', 'Não foi possível fazer upload da imagem. Verifique o console para mais detalhes.');
