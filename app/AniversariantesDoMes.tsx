@@ -10,14 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { toastSuccess, toastError, toastInfo } from '@/components/ui/sonner';
 // Importações adicionais
-import supabase from '@/utils/supabase';
+import supabase, { BUCKET_NAME } from '@/utils/supabase';
 import { v4 as uuidv4 } from 'uuid';
-
-// Configuração S3 direta
-const S3_ACCESS_KEY = 'befc8681d5d0cf930dba83970958c448';
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
 
 // Lista de meses em português
 const MESES = [
@@ -186,73 +180,39 @@ const AniversariantesDoMes = () => {
       
       let fotoUrl: string | undefined;
 
-      // Verifica se o bucket existe, se não, cria
-      const { data: buckets } = await supabase
-        .storage
-        .listBuckets();
-      
-      const bucketExists = buckets?.some(bucket => bucket.name === 'aniversariantes');
-      
-      if (!bucketExists) {
-        // Cria o bucket se não existir
-        const { error: bucketError } = await supabase
-          .storage
-          .createBucket('aniversariantes', {
-            public: true,
-            fileSizeLimit: 2097152, // 2MB em bytes
-            allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-          });
-          
-        if (bucketError) {
-          console.error('Erro ao criar bucket:', bucketError);
-          throw bucketError;
-        }
-      }
-
+      // Verificar se há um arquivo selecionado para upload
       if (selectedFile) {
         try {
-          console.log('Iniciando upload do arquivo com S3...');
+          console.log('Iniciando upload do arquivo...');
           
           // Gera um nome único para o arquivo
           const fileExt = selectedFile.name.split('.').pop();
           const fileName = `${uuidv4()}.${fileExt}`;
+          const filePath = fileName; // Caminho dentro do bucket
           
-          // Tentar upload direto via endpoint S3
-          const S3_ENDPOINT = 'https://krzroxvtvpqkpvngmtfx.supabase.co/storage/v1/s3';
-          console.log(`Tentando upload direto via endpoint S3: ${S3_ENDPOINT}`);
+          // Fazer upload do arquivo diretamente usando Supabase Storage
+          const { data: uploadData, error: uploadError } = await supabase
+            .storage
+            .from(BUCKET_NAME)
+            .upload(filePath, selectedFile, {
+              cacheControl: '3600',
+              upsert: true // Sobrescrever caso exista
+            });
           
-          // Preparar formData para upload direto
-          const formData = new FormData();
-          formData.append('file', selectedFile);
-          
-          // URL de upload direta para o S3
-          const fullPath = `aniversariantes-bucket/${fileName}`;
-          const uploadUrl = `${S3_ENDPOINT}/${fullPath}`;
-          
-          console.log(`URL de upload: ${uploadUrl}`);
-          
-          // Fazer upload diretamente via fetch
-          const response = await fetch(uploadUrl, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'x-s3-access-key': S3_ACCESS_KEY,
-              'x-upsert': 'true'
-            },
-            body: formData
-          });
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Erro no upload S3: ${response.status} ${response.statusText}`, errorText);
-            throw new Error(`Upload falhou: ${response.status} ${response.statusText} - ${errorText}`);
+          if (uploadError) {
+            console.error('Erro de upload:', uploadError);
+            throw uploadError;
           }
           
-          console.log('Upload S3 bem-sucedido!');
+          console.log('Upload bem-sucedido!', uploadData);
           
-          // Construir a URL pública
-          const publicUrl = `${S3_ENDPOINT}/${fullPath}`;
-          fotoUrl = publicUrl;
+          // Obter a URL pública do arquivo
+          const { data: publicUrlData } = supabase
+            .storage
+            .from(BUCKET_NAME)
+            .getPublicUrl(filePath);
+          
+          fotoUrl = publicUrlData.publicUrl;
           
           console.log('URL da foto gerada:', fotoUrl);
         } catch (uploadErr) {
@@ -330,19 +290,29 @@ const AniversariantesDoMes = () => {
           
         // Se tiver foto, tenta remover do storage
         if (aniversarianteData?.foto) {
-          // Extrai o nome do arquivo da URL
-          const urlParts = aniversarianteData.foto.split('/');
-          const fileName = urlParts[urlParts.length - 1];
-          
-          // Remove o arquivo do storage
-          const { error: storageError } = await supabase
-            .storage
-            .from('aniversariantes')
-            .remove([fileName]);
+          try {
+            // Extrai o nome do arquivo da URL
+            const url = new URL(aniversarianteData.foto);
+            const pathSegments = url.pathname.split('/');
+            const fileName = pathSegments[pathSegments.length - 1];
             
-          if (storageError) {
-            console.warn('Erro ao remover arquivo:', storageError);
-            // Continua mesmo se não conseguir remover o arquivo
+            console.log('Tentando remover arquivo:', fileName);
+            
+            // Remove o arquivo do storage
+            const { error: storageError } = await supabase
+              .storage
+              .from(BUCKET_NAME)
+              .remove([fileName]);
+              
+            if (storageError) {
+              console.warn('Erro ao remover arquivo:', storageError);
+              // Continua mesmo se não conseguir remover o arquivo
+            } else {
+              console.log('Arquivo removido com sucesso:', fileName);
+            }
+          } catch (fileError) {
+            console.warn('Erro ao processar URL da foto:', fileError);
+            // Continua o processo mesmo se falhar ao remover o arquivo
           }
         }
         
