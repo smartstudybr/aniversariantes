@@ -83,120 +83,123 @@ export const useAniversariantes = (): UseAniversariantesReturn => {
   const adicionarAniversariante = useCallback(async (
   dadosAniversariante: NovoAniversariante,
   selectedFile: File | null
-    ): Promise<boolean> => {
-    // Validação básica
-    if (!dadosAniversariante.nome || !dadosAniversariante.data || !dadosAniversariante.departamento) {
-        toastError('Campos obrigatórios', 
-        'Nome, data de aniversário e departamento são obrigatórios');
-        return false;
-    }
+): Promise<boolean> => {
+  // Validação básica
+  if (!dadosAniversariante.nome || !dadosAniversariante.data) {
+    toastError('Campos obrigatórios', 
+      'Nome e data de aniversário são obrigatórios');
+    return false;
+  }
+  
+  // Validar o formato da data (DD/MM)
+  const dataRegex = /^\d{2}\/\d{2}$/;
+  if (!dataRegex.test(dadosAniversariante.data)) {
+    toastError('Formato inválido', 
+      'A data deve estar no formato DD/MM');
+    return false;
+  }
+  
+  // Validar que o dia está entre 1 e 31 e o mês entre 1 e 12
+  const [dia, mes] = dadosAniversariante.data.split('/').map(Number);
+  if (dia < 1 || dia > 31 || mes < 1 || mes > 12) {
+    toastError('Data inválida', 
+      'O dia deve estar entre 1 e 31 e o mês entre 1 e 12');
+    return false;
+  }
+  
+  try {
+    setAdicionando(true); // Ativar indicador de carregamento
     
-    // Validar o formato da data (DD/MM)
-    const dataRegex = /^\d{2}\/\d{2}$/;
-    if (!dataRegex.test(dadosAniversariante.data)) {
-      toastError('Formato inválido', 
-        'A data deve estar no formato DD/MM');
-      return false;
-    }
-    
-    // Validar que o dia está entre 1 e 31 e o mês entre 1 e 12
-    const [dia, mes] = dadosAniversariante.data.split('/').map(Number);
-    if (dia < 1 || dia > 31 || mes < 1 || mes > 12) {
-      toastError('Data inválida', 
-        'O dia deve estar entre 1 e 31 e o mês entre 1 e 12');
-      return false;
-    }
-    
-    try {
-      setAdicionando(true); // Ativar indicador de carregamento
-      
-      let fotoUrl: string | undefined;
+    let fotoUrl: string | undefined;
 
-      // Verificar se há um arquivo selecionado para upload
-      if (selectedFile) {
-        try {
-          console.log('Iniciando upload do arquivo...');
-          
-          // Gera um nome único para o arquivo
-          const fileExt = selectedFile.name.split('.').pop();
-          const fileName = `${uuidv4()}.${fileExt}`;
-          const filePath = fileName; // Caminho dentro do bucket
-          
-          // Fazer upload do arquivo diretamente usando Supabase Storage
-          const { data: uploadData, error: uploadError } = await supabase
-            .storage
-            .from(BUCKET_NAME)
-            .upload(filePath, selectedFile, {
-              cacheControl: '3600',
-              upsert: true // Sobrescrever caso exista
-            });
-          
-          if (uploadError) {
-            console.error('Erro de upload:', uploadError);
-            throw uploadError;
-          }
-          
-          console.log('Upload bem-sucedido!', uploadData);
-          
-          // Obter a URL pública do arquivo
-          const { data: publicUrlData } = supabase
-            .storage
-            .from(BUCKET_NAME)
-            .getPublicUrl(filePath);
-          
-          fotoUrl = publicUrlData.publicUrl;
-          
-          console.log('URL da foto gerada:', fotoUrl);
-        } catch (uploadErr) {
-          console.error('Erro detalhado no processo de upload:', uploadErr);
-          toastError('Erro no upload', 'Não foi possível fazer upload da imagem. Verifique o console para mais detalhes.');
-          setAdicionando(false);
-          return false;
+    // Verificar se há um arquivo selecionado para upload
+    if (selectedFile) {
+      try {
+        console.log('Iniciando upload do arquivo...');
+        
+        // Gera um nome único para o arquivo
+        const fileExt = selectedFile.name.split('.').pop();
+        const fileName = `${uuidv4()}.${fileExt}`;
+        const filePath = fileName; // Caminho dentro do bucket
+        
+        // Fazer upload do arquivo diretamente usando Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase
+          .storage
+          .from(BUCKET_NAME)
+          .upload(filePath, selectedFile, {
+            cacheControl: '3600',
+            upsert: true // Sobrescrever caso exista
+          });
+        
+        if (uploadError) {
+          console.error('Erro de upload:', uploadError);
+          throw uploadError;
         }
+        
+        console.log('Upload bem-sucedido!', uploadData);
+        
+        // Obter a URL pública do arquivo
+        const { data: publicUrlData } = supabase
+          .storage
+          .from(BUCKET_NAME)
+          .getPublicUrl(filePath);
+        
+        fotoUrl = publicUrlData.publicUrl;
+        
+        console.log('URL da foto gerada:', fotoUrl);
+      } catch (uploadErr) {
+        console.error('Erro detalhado no processo de upload:', uploadErr);
+        toastError('Erro no upload', 'Não foi possível fazer upload da imagem. Verifique o console para mais detalhes.');
+        setAdicionando(false);
+        return false;
       }
-
-      // Criar um ID para o novo aniversariante
-      const newId = uuidv4();
-
-      // Preparar o objeto para inserção
-      const payload = {
-        id: newId,
-        nome: dadosAniversariante.nome,
-        departamento: dadosAniversariante.departamento || null,
-        data: dadosAniversariante.data,
-        email: dadosAniversariante.email || null,
-        foto: fotoUrl || null
-      };
-
-      console.log('Payload a ser inserido:', payload);
-
-      // Inserir no banco de dados
-      const { data, error } = await supabase
-        .from('aniversariantes')
-        .insert([payload])
-        .select();
-
-      if (error) {
-        console.error('Erro ao inserir no banco:', error);
-        throw error;
-      }
-      
-      if (data && data.length > 0) {
-        // Atualiza estado
-        setAniversariantes(prev => [...prev, data[0]]);
-        toastSuccess('Aniversariante adicionado', 'Tudo certo!');
-        return true;
-      } else {
-        throw new Error('Dados não foram retornados após inserção');
-      }
-    } catch (err) {
-      console.error('Erro ao adicionar aniversariante:', err);
-      toastError('Erro ao adicionar', 'Não foi possível adicionar o aniversariante');
-      return false;
-    } finally {
-      setAdicionando(false); // Desativar indicador de carregamento independente do resultado
     }
-  }, []);
+
+    // Criar um ID para o novo aniversariante
+    const newId = uuidv4();
+
+    // Preparar o objeto para inserção
+    const payload = {
+      id: newId,
+      nome: dadosAniversariante.nome,
+      departamento: dadosAniversariante.departamento || null,
+      data: dadosAniversariante.data,
+      email: dadosAniversariante.email || null,
+      foto: fotoUrl || null
+    };
+
+    console.log('Payload a ser inserido:', payload);
+
+    // Inserir no banco de dados
+    const { data, error } = await supabase
+      .from('aniversariantes')
+      .insert([payload])
+      .select();
+
+    if (error) {
+      console.error('Erro ao inserir no banco:', error);
+      throw error;
+    }
+    
+    if (data && data.length > 0) {
+      // Atualiza estado
+      setAniversariantes(prev => [...prev, data[0]]);
+      
+      // REMOVIDO: o toast de sucesso para evitar duplicação
+      // toastSuccess('Aniversariante adicionado', 'Tudo certo!');
+      
+      return true;
+    } else {
+      throw new Error('Dados não foram retornados após inserção');
+    }
+  } catch (err) {
+    console.error('Erro ao adicionar aniversariante:', err);
+    toastError('Erro ao adicionar', 'Não foi possível adicionar o aniversariante');
+    return false;
+  } finally {
+    setAdicionando(false); // Desativar indicador de carregamento independente do resultado
+  }
+}, []);
 
   // Função para remover aniversariante
   // Função para remover aniversariante

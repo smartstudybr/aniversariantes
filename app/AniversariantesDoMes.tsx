@@ -1,14 +1,15 @@
-// AniversariantesDoMes.tsx (Refatorado)
-import React, { useState, useCallback } from 'react';
+// AniversariantesDoMes.tsx (Atualizado com Confetti)
+import React, { useState, useCallback, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Cake, Calendar, UserPlus } from 'lucide-react';
+import { Cake, Calendar, UserPlus, PartyPopper } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FormAniversariante } from '@/components/FormAniversariante';
 import { ListaAniversariantes } from '@/components/ListaAniversariantes';
-import { useAniversariantes, type NovoAniversariante } from './hooks/useAniversariantes';
-import { toastInfo } from '@/components/ui/sonner';
+import { useAniversariantes, type NovoAniversariante } from '@/hooks/useAniversariantes';
+import { toastInfo, toast } from '@/components/ui/sonner';
+import { ConfettiCelebration } from '@/components/ConfettiCelebration';
 
 // Lista de meses em português
 const MESES = [
@@ -17,6 +18,9 @@ const MESES = [
 ];
 
 const DEPARTAMENTOS = ['RCDC1','RCDC2','RCDC3','RCDC4','RCDC5','RCDC6','RCDC7','RCDC8','RCDC9','RCDC0'];
+
+// Evento global para lançar confetes (pode ser chamado de qualquer lugar)
+export const triggerConfetti = new Event('triggerConfetti');
 
 const AniversariantesDoMes: React.FC = () => {
   // Usar o hook personalizado
@@ -33,6 +37,10 @@ const AniversariantesDoMes: React.FC = () => {
   // Estado para controlar a abertura do modal
   const [modalAberto, setModalAberto] = useState(false);
   
+  // Estados para controlar os confetes
+  const [showInitialConfetti, setShowInitialConfetti] = useState(false);
+  const [showActionConfetti, setShowActionConfetti] = useState(false);
+  
   // Função para lidar com a adição de novo aniversariante
   const handleAdicionarAniversariante = useCallback(async (
     dadosAniversariante: NovoAniversariante, 
@@ -41,6 +49,20 @@ const AniversariantesDoMes: React.FC = () => {
     const sucesso = await adicionarAniversariante(dadosAniversariante, arquivo);
     if (sucesso) {
       setModalAberto(false);
+      
+      // Lançar confetes ao adicionar com sucesso
+      setShowActionConfetti(true);
+      
+      // Mostrar APENAS o toast festivo rosa (removendo o toast padrão verde)
+      toast.custom((t) => (
+        <div className="bg-pink-50 border-pink-200 text-pink-800 px-4 py-3 rounded-md shadow-lg border flex items-center gap-3 -mb-2 -mt-0.5">
+          <PartyPopper className="w-5 h-5 text-pink-500" />
+          <div>
+            <div className="font-semibold">Aniversariante adicionado!</div>
+            <div className="text-sm text-pink-600">Novo aniversariante cadastrado com sucesso</div>
+          </div>
+        </div>
+      ), { duration: 4000, id: 'aniversariante-adicionado' });
     }
   }, [adicionarAniversariante]);
   
@@ -54,9 +76,44 @@ const AniversariantesDoMes: React.FC = () => {
     setModalAberto(false);
   }, []);
   
+  // Efeito para mostrar confetes na carga inicial
+  useEffect(() => {
+    // Se tiver aniversariantes no mês atual, mostrar confetes
+    if (!carregando && aniversariantesFiltrados.length > 0) {
+      setShowInitialConfetti(true);
+    }
+    
+    // Configurar listener para eventos de confete
+    const handleConfettiEvent = () => {
+      setShowActionConfetti(true);
+    };
+    
+    window.addEventListener('triggerConfetti', handleConfettiEvent);
+    
+    return () => {
+      window.removeEventListener('triggerConfetti', handleConfettiEvent);
+    };
+  }, [carregando, aniversariantesFiltrados]);
+  
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col items-center mb-8">
+    <div className="container mx-auto px-4 py-8 relative">
+      {/* Confete inicial ao carregar a página */}
+      <ConfettiCelebration 
+        active={showInitialConfetti} 
+        duration={5000}
+        numberOfPieces={150}
+        onComplete={() => setShowInitialConfetti(false)}
+      />
+      
+      {/* Confete para ações como adicionar aniversariante */}
+      <ConfettiCelebration 
+        active={showActionConfetti} 
+        duration={3000}
+        numberOfPieces={120}
+        onComplete={() => setShowActionConfetti(false)}
+      />
+      
+      <div className="flex flex-col items-center mb-8 relative">
         <div className="flex flex-col sm:flex-row items-center gap-2 mb-2">
           <Cake size={28} className="text-pink-500" />
           <h1 className="text-3xl font-bold text-center">Aniversariantes do Mês</h1>
@@ -67,7 +124,20 @@ const AniversariantesDoMes: React.FC = () => {
         <div className="w-full max-w-xs">
           <Select 
             value={mesSelecionado.toString()} 
-            onValueChange={(value) => setMesSelecionado(parseInt(value, 10))}
+            onValueChange={(value) => {
+              setMesSelecionado(parseInt(value, 10));
+              
+              // Lançar confetes ao mudar de mês, se houver aniversariantes
+              const novoMes = parseInt(value, 10);
+              const tempAniv = aniversariantesFiltrados.filter(a => {
+                const mes = parseInt(a.data.split('/')[1]) - 1;
+                return mes === novoMes;
+              });
+              
+              if (tempAniv.length > 0) {
+                setShowActionConfetti(true);
+              }
+            }}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Selecione o mês" />

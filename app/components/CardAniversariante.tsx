@@ -1,9 +1,9 @@
-// componentes/CardAniversariante.tsx (Atualizado com Dialog de confirmação)
+// componentes/CardAniversariante.tsx (Atualizado com lançamento de confetes)
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Mail, Trash2 } from 'lucide-react';
+import { Mail, Trash2, PartyPopper } from 'lucide-react';
 import type { Aniversariante } from '../hooks/useAniversariantes';
 import { obterCorAvatar, obterDia, obterIniciais, enviarEmail } from '../utils/aniversariantesUtils';
 import { toastInfo } from '@/components/ui/sonner';
@@ -20,12 +20,24 @@ export const CardAniversariante: React.FC<CardAniversarianteProps> = React.memo(
 }) => {
   // Estado para controlar o diálogo de confirmação
   const [confirmDialogAberto, setConfirmDialogAberto] = useState(false);
+  // Estado para animação de clique no botão de email
+  const [emailButtonAnimation, setEmailButtonAnimation] = useState(false);
   
   const handleEnviarEmail = () => {
     const enviado = enviarEmail(aniversariante);
     if (enviado) {
-      toastInfo('Email aberto', 
-        `Email para ${aniversariante.nome} aberto no seu cliente de email`);
+      // Disparar evento de confete
+      window.dispatchEvent(new Event('triggerConfetti'));
+      
+      // Animar o botão
+      setEmailButtonAnimation(true);
+      setTimeout(() => setEmailButtonAnimation(false), 1000);
+      
+      // Mostrar toast com ícone festivo
+      toastInfo(
+        'Email aberto',
+        `Mensagem para ${aniversariante.nome} aberta no seu cliente de email`
+      );
     }
   };
   
@@ -47,12 +59,34 @@ export const CardAniversariante: React.FC<CardAniversarianteProps> = React.memo(
     }
   };
   
+  // Verificar se hoje é o aniversário da pessoa
+  const isAniversarioHoje = () => {
+    if (!aniversariante.data) return false;
+    
+    const hoje = new Date();
+    const [dia, mes] = aniversariante.data.split('/').map(Number);
+    
+    return dia === hoje.getDate() && (mes - 1) === hoje.getMonth();
+  };
+  
+  const ehAniversarioHoje = isAniversarioHoje();
+  
   return (
     <>
-      <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+      <Card className={`relative overflow-hidden hover:shadow-lg transition-shadow ${ehAniversarioHoje ? 'ring-2 ring-pink-400 shadow-lg' : ''}`}>
+        {ehAniversarioHoje && (
+          <div className="absolute right-16 top-16 transform rotate-12">
+            <PartyPopper className="h-8 w-8 text-pink-500" />
+          </div>
+        )}
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
-            <CardTitle className="text-lg">{aniversariante.nome}</CardTitle>
+            <CardTitle className="text-lg">
+              {aniversariante.nome}
+              {ehAniversarioHoje && (
+                <Badge className="ml-2 bg-pink-500 animate-pulse">Hoje!</Badge>
+              )}
+            </CardTitle>
             <div className="flex gap-2">
               <Badge className="bg-pink-500">{aniversariante.data}</Badge>
               <Button 
@@ -69,7 +103,7 @@ export const CardAniversariante: React.FC<CardAniversarianteProps> = React.memo(
         </CardHeader>
         
         <CardContent className="flex items-center gap-4 pt-0">
-          <div className={`${aniversariante.foto ? '' : obterCorAvatar(aniversariante.nome)} w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold overflow-hidden`}>
+          <div className={`${aniversariante.foto ? '' : obterCorAvatar(aniversariante.nome)} w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold overflow-hidden ${ehAniversarioHoje ? 'ring-2 ring-pink-300' : ''}`}>
             {aniversariante.foto ? (
               <img src={aniversariante.foto} alt={aniversariante.nome} className="w-full h-full object-cover" />
             ) : (
@@ -86,16 +120,20 @@ export const CardAniversariante: React.FC<CardAniversarianteProps> = React.memo(
           </div>
         </CardContent>
         
-        <CardFooter className="bg-gray-50 dark:bg-gray-800">
+        <CardFooter className={`bg-gray-50 dark:bg-gray-800 ${ehAniversarioHoje ? 'bg-pink-50 dark:bg-pink-900/30' : ''}`}>
           <div className="w-full flex justify-center">
             <Button 
               variant="ghost" 
-              className="flex items-center gap-2 text-sm text-pink-500 hover:text-pink-700 transition-colors"
+              className={`flex items-center gap-2 text-sm transition-colors ${emailButtonAnimation ? 'animate-bounce' : ''} ${
+                ehAniversarioHoje 
+                  ? 'text-pink-600 hover:text-pink-800 hover:bg-pink-100' 
+                  : 'text-pink-500 hover:text-pink-700'
+              }`}
               onClick={handleEnviarEmail}
               disabled={!aniversariante.email}
             >
-              <Mail size={16} />
-              <span>Enviar mensagem</span>
+              {ehAniversarioHoje ? <PartyPopper size={16} /> : <Mail size={16} />}
+              <span>{ehAniversarioHoje ? 'Desejar parabéns!' : 'Enviar mensagem'}</span>
             </Button>
           </div>
         </CardFooter>
