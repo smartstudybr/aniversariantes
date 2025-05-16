@@ -14,6 +14,33 @@ interface CardAniversarianteProps {
   onRemover: (id: string) => Promise<boolean>;
 }
 
+// E adicione esta função no seu componente:
+const getBadgeColor = (dep: string | undefined) => {
+  // Extrair o número do RCDC (assumindo formato "RCDC1", "RCDC2", etc.)
+  if (!dep) return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"; // Padrão
+  const match = dep.match(/RCDC(\d+)/);
+  
+  if (!match) return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"; // Padrão
+  
+  const rcdc = parseInt(match[1]);
+  
+  // Mapa de cores para cada número de RCDC (evitando tons de rosa)
+  const colorMap: { [key: number]: string } = {
+    0: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300", // Azul
+    1: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300", // Roxo
+    2: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300", // Verde esmeralda
+    3: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300", // Âmbar
+    4: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300", // Ciano
+    5: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300", // Laranja
+    6: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300", // Turquesa
+    7: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300", // Índigo
+    8: "bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-300", // Lima
+    9: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300", // Céu
+  };
+
+  return colorMap[rcdc] || "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+}
+
 export const CardAniversariante: React.FC<CardAniversarianteProps> = React.memo(({
   aniversariante,
   onRemover
@@ -79,6 +106,8 @@ const handleEnviarEmail = () => {
   };
   
   const ehAniversarioHoje = isAniversarioHoje();
+
+  
   
   return (
     <>
@@ -143,9 +172,11 @@ const handleEnviarEmail = () => {
                 {aniversariante.nome}
                 
               </p>
-              <p className="text-xs text-gray-500">
+              <Badge 
+                className={`text-xs font-medium ${getBadgeColor(aniversariante.departamento)}`}
+              >
                 {aniversariante.departamento}
-              </p>
+              </Badge>
               {aniversariante.email && (
                 <p className="cursor-pointer truncate text-xs text-gray-400 mt-1" onClick={handleEnviarEmail}>
                   {aniversariante.email}
