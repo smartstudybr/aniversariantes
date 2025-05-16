@@ -82,80 +82,114 @@ const handleEnviarEmail = () => {
   
   return (
     <>
-      <Card className={`relative hover:shadow-lg transition-shadow ${ehAniversarioHoje ? 'ring-2 ring-pink-400 shadow-xl' : ''}`}>
+      <Card
+        className={`relative hover:shadow-lg transition-shadow ${
+          ehAniversarioHoje ? "ring-2 ring-pink-400 shadow-xl" : ""
+        }`}
+      >
         {ehAniversarioHoje && (
-          <div className="absolute -right-4 top-4 transform rotate-12 z-10 pointer-events-none">
+          <div className="absolute -right-2 -top-2 transform rotate-12 z-10 pointer-events-none">
             {/* <PartyPopper className="h-8 w-8 text-pink-500" /> */}
-            <img src="/cake.png" alt="Bolo" className="h-58 w-auto scale-x-[-1] -rotate-12  animate-[twerk_10s_infinite]" />
+            <img
+              src="/cake.png"
+              alt="Bolo"
+              className="h-58 w-auto scale-x-[-1] -rotate-12 animate-[twerk_10s_infinite]"
+            />
           </div>
         )}
-        <CardHeader className="pb-2">
-          <div className="flex justify-between items-start">
-            <CardTitle className="text-lg">
-              {aniversariante.nome}
-              {ehAniversarioHoje && (
-                <Badge className="ml-2 bg-pink-500 animate-pulse">Hoje!</Badge>
+        <CardHeader>
+          <div className="flex justify-between items-center gap-2">
+            <Badge variant="outline" className="w-20 py-1 text-xl">{aniversariante.data}</Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-gray-400 hover:text-red-500"
+              onClick={abrirDialogConfirmacao}
+            >
+              <Trash2 size={14} />
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="flex items-center gap-4">
+          {/* Larger Image */}
+          <div className="w-full flex">
+            <div
+              className={`${
+                aniversariante.foto ? "" : obterCorAvatar(aniversariante.nome)
+              } overflow-hidden w-20 h-20 shrink-0 rounded-sm flex items-center justify-center text-white text-xl font-bold  ${
+                ehAniversarioHoje ? "ring-2 ring-pink-300" : ""
+              }`}
+            >
+              {aniversariante.foto ? (
+                <img
+                  src={aniversariante.foto}
+                  alt={aniversariante.nome}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                obterIniciais(aniversariante.nome)
               )}
-            </CardTitle>
-            <div className="flex gap-2">
-              <Badge className="bg-pink-500 text-xl">{aniversariante.data}</Badge>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-6 w-6 text-gray-400 hover:text-red-500" 
-                onClick={abrirDialogConfirmacao}
-              >
-                <Trash2 size={14} />
-              </Button>
+            </div>
+
+            {/* Name, Department, and Email */}
+            <div className="flex flex-col justify-center ml-4 w-full overflow-hidden">
+              {ehAniversarioHoje && (
+                  <Badge className=" bg-pink-500 animate-pulse">
+                    Hoje!
+                  </Badge>
+                )}
+              <p className="text-md truncate font-semibold text-gray-800">
+                {aniversariante.nome}
+                
+              </p>
+              <p className="text-xs text-gray-500">
+                {aniversariante.departamento}
+              </p>
+              {aniversariante.email && (
+                <p className="cursor-pointer truncate text-xs text-gray-400 mt-1" onClick={handleEnviarEmail}>
+                  {aniversariante.email}
+                </p>
+              )}
             </div>
           </div>
-          <CardDescription>{aniversariante.departamento}</CardDescription>
-        </CardHeader>
-        
-        <CardContent className="flex items-center gap-4 pt-0">
-          <div className={`${aniversariante.foto ? '' : obterCorAvatar(aniversariante.nome)} w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold overflow-hidden ${ehAniversarioHoje ? 'ring-2 ring-pink-300' : ''}`}>
-            {aniversariante.foto ? (
-              <img src={aniversariante.foto} alt={aniversariante.nome} className="w-full h-full object-cover" />
-            ) : (
-              obterIniciais(aniversariante.nome)
-            )}
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">
-              Aniversário dia <span className="font-semibold">{obterDia(aniversariante.data)}</span>
-            </p>
-            {aniversariante.email && (
-              <p className="text-xs text-gray-400 mt-1">{aniversariante.email}</p>
-            )}
-          </div>
         </CardContent>
-        
-        <CardFooter className={`bg-gray-50 dark:bg-gray-800 ${ehAniversarioHoje ? 'bg-pink-50 dark:bg-pink-900/30' : ''}`}>
-  <div className="w-full flex justify-center">
-    <Button
-      variant="link"
-      className={`flex items-center gap-2 text-sm transition-colors ${emailButtonAnimation ? 'animate-bounce' : ''} ${
-        ehAniversarioHoje
-          ? 'text-pink-600 hover:text-pink-800 hover:bg-pink-100'
-          : 'text-pink-500 hover:text-pink-700'
-      }`}
-      onClick={handleEnviarEmail}
-      disabled={!aniversariante.email}
-    >
-      {ehAniversarioHoje ? <PartyPopper size={16} /> : <Mail size={16} />}
-      <span>
-        {aniversariante.email
-          ? ehAniversarioHoje
-            ? 'Desejar parabéns!'
-            : 'Enviar mensagem'
-          : `${aniversariante.nome} não deixou email...`}
-      </span>
-    </Button>
-  </div>
-</CardFooter>
 
+        <CardFooter
+          className={`py-2 rounded-b-xl bg-gray-50 dark:bg-gray-800 ${
+            ehAniversarioHoje ? "bg-pink-50 dark:bg-pink-900/30" : ""
+          }`}
+        >
+          <div className="w-full flex justify-center">
+            <Button
+              variant="link"
+              className={`flex items-center gap-2 text-sm transition-colors ${
+                emailButtonAnimation ? "animate-bounce" : ""
+              } ${
+                ehAniversarioHoje
+                  ? "text-pink-600 hover:text-pink-800 hover:bg-pink-100"
+                  : "text-pink-500 hover:text-pink-700"
+              }`}
+              onClick={handleEnviarEmail}
+              disabled={!aniversariante.email}
+            >
+              {ehAniversarioHoje ? (
+                <PartyPopper size={16} />
+              ) : (
+                <Mail size={16} />
+              )}
+              <span>
+                {aniversariante.email
+                  ? ehAniversarioHoje
+                    ? "Desejar parabéns!"
+                    : "Enviar mensagem"
+                  : `${aniversariante.nome} não deixou email...`}
+              </span>
+            </Button>
+          </div>
+        </CardFooter>
       </Card>
-      
+
       {/* Diálogo de confirmação de exclusão */}
       <DialogConfirmacao
         aberto={confirmDialogAberto}
