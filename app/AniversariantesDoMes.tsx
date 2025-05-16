@@ -277,65 +277,82 @@ const AniversariantesDoMes = () => {
     }
   };
   
-  // Função para remover um aniversariante
-  const removerAniversariante = async (id: string) => {
-    if (confirm('Tem certeza que deseja remover este aniversariante?')) {
-      try {
-        // Primeiro busca o aniversariante para ver se tem foto para excluir
-        const { data: aniversarianteData } = await supabase
-          .from('aniversariantes')
-          .select('foto')
-          .eq('id', id)
-          .single();
-          
-        // Se tiver foto, tenta remover do storage
-        if (aniversarianteData?.foto) {
-          try {
-            // Extrai o nome do arquivo da URL
-            const url = new URL(aniversarianteData.foto);
-            const pathSegments = url.pathname.split('/');
-            const fileName = pathSegments[pathSegments.length - 1];
-            
-            console.log('Tentando remover arquivo:', fileName);
-            
-            // Remove o arquivo do storage
-            const { error: storageError } = await supabase
-              .storage
-              .from(BUCKET_NAME)
-              .remove([fileName]);
-              
-            if (storageError) {
-              console.warn('Erro ao remover arquivo:', storageError);
-              // Continua mesmo se não conseguir remover o arquivo
-            } else {
-              console.log('Arquivo removido com sucesso:', fileName);
-            }
-          } catch (fileError) {
-            console.warn('Erro ao processar URL da foto:', fileError);
-            // Continua o processo mesmo se falhar ao remover o arquivo
-          }
-        }
-        
-        // Remove o aniversariante do banco
-        const { error } = await supabase
-          .from('aniversariantes')
-          .delete()
-          .eq('id', id);
-        
-        if (error) {
-          throw error;
-        }
-        
-        // Atualizar o estado local
-        setAniversariantes(prev => prev.filter(anv => anv.id !== id));
-        toastSuccess('Aniversariante removido', 
-          'Aniversariante removido com sucesso!');
-      } catch (error) {
-        console.error('Erro ao remover aniversariante:', error);
-        toastError('Erro', 'Não foi possível remover o aniversariante');
+  // Função corrigida para remover aniversariante
+const removerAniversariante = async (id: string) => {
+  if (confirm('Tem certeza que deseja remover este aniversariante?')) {
+    try {
+      console.log('Iniciando remoção do aniversariante com ID:', id);
+      
+      // Primeiro busca o aniversariante para ver se tem foto para excluir
+      const { data: aniversarianteData, error: fetchError } = await supabase
+        .from('aniversariantes')
+        .select('foto')
+        .eq('id', id)
+        .single();
+      
+      if (fetchError) {
+        console.error('Erro ao buscar dados do aniversariante:', fetchError);
+        throw fetchError;
       }
+      
+      console.log('Dados do aniversariante recuperados:', aniversarianteData);
+      
+      // Se tiver foto, tenta remover do storage
+      if (aniversarianteData?.foto) {
+        try {
+          // Extrai o nome do arquivo da URL
+          const url = new URL(aniversarianteData.foto);
+          const pathSegments = url.pathname.split('/');
+          const fileName = pathSegments[pathSegments.length - 1];
+          
+          console.log('Tentando remover arquivo:', fileName);
+          
+          // Remove o arquivo do storage
+          const { error: storageError } = await supabase
+            .storage
+            .from(BUCKET_NAME)
+            .remove([fileName]);
+            
+          if (storageError) {
+            console.warn('Erro ao remover arquivo:', storageError);
+            // Continua mesmo se não conseguir remover o arquivo
+          } else {
+            console.log('Arquivo removido com sucesso:', fileName);
+          }
+        } catch (fileError) {
+          console.warn('Erro ao processar URL da foto:', fileError);
+          // Continua o processo mesmo se falhar ao remover o arquivo
+        }
+      }
+      
+      // Remove o aniversariante do banco - AQUI PODE ESTAR O PROBLEMA
+      console.log('Tentando remover aniversariante do banco de dados...');
+      const { error: deleteError } = await supabase
+        .from('aniversariantes')
+        .delete()
+        .eq('id', id);
+      
+      if (deleteError) {
+        console.error('Erro ao remover aniversariante do banco:', deleteError);
+        throw deleteError;
+      }
+      
+      console.log('Aniversariante removido com sucesso do banco de dados');
+      
+      // Atualizar o estado local somente após confirmação de exclusão bem-sucedida
+      setAniversariantes(prev => prev.filter(anv => anv.id !== id));
+      
+      toastSuccess('Aniversariante removido', 
+        'Aniversariante removido com sucesso!');
+    } catch (error: any) {
+      console.error('Erro completo ao remover aniversariante:', error);
+      toastError('Erro ao remover', error.message || 'Não foi possível remover o aniversariante');
+      
+      // Recarrega os dados para garantir sincronização com o banco
+      carregarAniversariantes();
     }
-  };
+  }
+};
   
   // Função para enviar um email de parabéns
   const enviarEmail = (anv: Aniversariante) => {
