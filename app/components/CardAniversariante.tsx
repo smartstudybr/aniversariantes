@@ -23,23 +23,32 @@ export const CardAniversariante: React.FC<CardAniversarianteProps> = React.memo(
   // Estado para animação de clique no botão de email
   const [emailButtonAnimation, setEmailButtonAnimation] = useState(false);
   
-  const handleEnviarEmail = () => {
-    const enviado = enviarEmail(aniversariante);
-    if (enviado) {
-      // Disparar evento de confete
-      window.dispatchEvent(new Event('triggerConfetti'));
-      
-      // Animar o botão
-      setEmailButtonAnimation(true);
-      setTimeout(() => setEmailButtonAnimation(false), 1000);
-      
-      // Mostrar toast com ícone festivo
-      toastInfo(
-        'Email aberto',
-        `Mensagem para ${aniversariante.nome} aberta no seu cliente de email`
-      );
-    }
-  };
+const handleEnviarEmail = () => {
+  const emailAddress = {aniversariante}; // Replace with actual recipient email address
+  const subject = "Feliz Aniversário!";
+  const body = `Mensagem para ${aniversariante.nome} está aberta no seu cliente de e-mail.`;
+
+  // Construct the mailto link with subject and body
+  const mailtoLink = `mailto:${emailAddress}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  // Open the default mail client
+  window.location.href = mailtoLink;
+
+  // Disparar evento de confete
+  window.dispatchEvent(new Event('triggerConfetti'));
+
+  // Animar o botão
+  setEmailButtonAnimation(true);
+  setTimeout(() => setEmailButtonAnimation(false), 1000);
+
+  // Mostrar toast com ícone festivo
+  toastInfo(
+    'Email aberto',
+    `Mensagem para ${aniversariante.nome} aberta no seu cliente de email`
+  );
+};
+
+
   
   // Função para abrir o diálogo de confirmação
   const abrirDialogConfirmacao = () => {
@@ -73,10 +82,11 @@ export const CardAniversariante: React.FC<CardAniversarianteProps> = React.memo(
   
   return (
     <>
-      <Card className={`relative overflow-hidden hover:shadow-lg transition-shadow ${ehAniversarioHoje ? 'ring-2 ring-pink-400 shadow-lg' : ''}`}>
+      <Card className={`relative hover:shadow-lg transition-shadow ${ehAniversarioHoje ? 'ring-2 ring-pink-400 shadow-xl' : ''}`}>
         {ehAniversarioHoje && (
-          <div className="absolute right-16 top-16 transform rotate-12">
-            <PartyPopper className="h-8 w-8 text-pink-500" />
+          <div className="absolute -right-4 top-4 transform rotate-12 z-10 pointer-events-none">
+            {/* <PartyPopper className="h-8 w-8 text-pink-500" /> */}
+            <img src="/cake.png" alt="Bolo" className="h-58 w-auto scale-x-[-1] -rotate-12  animate-[twerk_10s_infinite]" />
           </div>
         )}
         <CardHeader className="pb-2">
@@ -88,7 +98,7 @@ export const CardAniversariante: React.FC<CardAniversarianteProps> = React.memo(
               )}
             </CardTitle>
             <div className="flex gap-2">
-              <Badge className="bg-pink-500">{aniversariante.data}</Badge>
+              <Badge className="bg-pink-500 text-xl">{aniversariante.data}</Badge>
               <Button 
                 variant="ghost" 
                 size="icon" 
@@ -121,22 +131,29 @@ export const CardAniversariante: React.FC<CardAniversarianteProps> = React.memo(
         </CardContent>
         
         <CardFooter className={`bg-gray-50 dark:bg-gray-800 ${ehAniversarioHoje ? 'bg-pink-50 dark:bg-pink-900/30' : ''}`}>
-          <div className="w-full flex justify-center">
-            <Button 
-              variant="ghost" 
-              className={`flex items-center gap-2 text-sm transition-colors ${emailButtonAnimation ? 'animate-bounce' : ''} ${
-                ehAniversarioHoje 
-                  ? 'text-pink-600 hover:text-pink-800 hover:bg-pink-100' 
-                  : 'text-pink-500 hover:text-pink-700'
-              }`}
-              onClick={handleEnviarEmail}
-              disabled={!aniversariante.email}
-            >
-              {ehAniversarioHoje ? <PartyPopper size={16} /> : <Mail size={16} />}
-              <span>{ehAniversarioHoje ? 'Desejar parabéns!' : 'Enviar mensagem'}</span>
-            </Button>
-          </div>
-        </CardFooter>
+  <div className="w-full flex justify-center">
+    <Button
+      variant="link"
+      className={`flex items-center gap-2 text-sm transition-colors ${emailButtonAnimation ? 'animate-bounce' : ''} ${
+        ehAniversarioHoje
+          ? 'text-pink-600 hover:text-pink-800 hover:bg-pink-100'
+          : 'text-pink-500 hover:text-pink-700'
+      }`}
+      onClick={handleEnviarEmail}
+      disabled={!aniversariante.email}
+    >
+      {ehAniversarioHoje ? <PartyPopper size={16} /> : <Mail size={16} />}
+      <span>
+        {aniversariante.email
+          ? ehAniversarioHoje
+            ? 'Desejar parabéns!'
+            : 'Enviar mensagem'
+          : `${aniversariante.nome} não deixou email...`}
+      </span>
+    </Button>
+  </div>
+</CardFooter>
+
       </Card>
       
       {/* Diálogo de confirmação de exclusão */}

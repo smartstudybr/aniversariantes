@@ -1,4 +1,4 @@
-// hooks/useWindowSize.ts
+// hooks/useWindowSize.ts (versão corrigida)
 import { useState, useEffect } from 'react';
 
 interface WindowSize {
@@ -16,9 +16,11 @@ export function useWindowSize(): WindowSize {
   useEffect(() => {
     // Handler para atualizar dimensões da janela
     function handleResize() {
+      // Usa document.documentElement para obter o tamanho do viewport
+      // em vez de window.innerWidth/Height que pode incluir barras de rolagem
       setWindowSize({
-        width: window.innerWidth,
-        height: window.innerHeight,
+        width: document.documentElement.clientWidth,
+        height: document.documentElement.clientHeight,
       });
     }
     

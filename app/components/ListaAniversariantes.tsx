@@ -24,7 +24,7 @@ export const ListaAniversariantes: React.FC<ListaAniversariantesProps> = ({
   // Se não houver aniversariantes, mostrar mensagem
   if (aniversariantes.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div className="flex flex-col items-center justify-center p-12 bg-white border-2 border-[#fcf4fc] dark:bg-gray-800 rounded-lg">
         <div className="mb-4 text-gray-400">
           <Cake size={48} />
         </div>

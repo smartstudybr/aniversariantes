@@ -63,7 +63,7 @@ body {
   --card-foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
+  --primary: #F6339A;
   --primary-foreground: oklch(0.984 0.003 247.858);
   --secondary: oklch(0.968 0.007 247.896);
   --secondary-foreground: oklch(0.208 0.042 265.755);
@@ -156,9 +156,32 @@ body {
     @apply bg-background text-foreground;
   }
   html{
+    min-height: 100%;
     background-color: #ffffff;
     background: repeating-linear-gradient( -45deg, #fcf4fc, #fcf4fc 2px, #ffffff 2px, #ffffff 10px );
   }
+  @keyframes twerk {
+  0%, 100% {
+    transform: scale(1) rotate(12deg) scaleX(1);
+    filter: drop-shadow(0px 10px 5px rgba(0, 0, 0, 0.3)); /* Initial shadow */
+  }
+  25% {
+    transform: scale(1.1) rotate(12deg) scaleX(1) translateY(10px) rotate(5deg); /* Slight rotation */
+    filter: drop-shadow( 0px 12px 10px rgba(0, 0, 0, 0.3)); /* Shadow grows with size */
+  }
+  50% {
+    transform: scale(0.8) rotate(12deg) scaleX(1) translateY(-10px) rotate(-5deg); /* Wobbly rotation */
+    filter: drop-shadow( 10px 8px 4px rgba(0, 0, 0, 0.3)); /* Shadow shrinks with size */
+  }
+  75% {
+    transform: scale(1.05) rotate(12deg) scaleX(1) translateY(5px) rotate(3deg); /* Slight rotation */
+    filter: drop-shadow( 0px 10px 8px rgba(0, 0, 0, 0.3)); /* Shadow slightly grows */
+  }
+}
+
+.animate-[twerk_10s_infinite] {
+  animation: twerk 10s ease-in-out infinite; /* 4s duration with smooth easing */
+}
 }
 
 [data-sonner-toaster] {
