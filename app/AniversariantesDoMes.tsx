@@ -121,7 +121,7 @@ const AniversariantesDoMes: React.FC = () => {
         <p className="text-gray-500 mb-6">Celebre com nossos colegas!</p>
         
         {/* Seletor de mês */}
-        <div className="w-full max-w-xs">
+        <div className="w-full max-w-xs bg-white">
           <Select 
             value={mesSelecionado.toString()} 
             onValueChange={(value) => {
